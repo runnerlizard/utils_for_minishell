@@ -1,5 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
+# include <fcntl.h>
+# include <errno.h>
+# include <string.h>
+# include <sys/wait.h>
 
 size_t	ft_strlen(const char *s);
 
@@ -63,35 +68,43 @@ static int count_args(char *s)
 static char *get_arg(char *s, int *k)
 {
     int i;
+    int j;
     char    *ret;
 
-    i = rotate_quotes_and_text(s, *k);
-    ret = malloc(sizeof(char) * (i - *k + 1));
+    j = *k;
+    i = rotate_quotes_and_text(s, j);
+    ret = malloc(sizeof(char) * (i - j + 1));
     if (ret == NULL)
         exit (1); //TODO free all
     i = -1;
-    while (s[*k] != ' ' && s[*k] != '<' && s[*k] != '>' && (s[*k]))
+    while (s[j] != ' ' && s[j] != '<' && s[j] != '>' && (s[j]))
     {
-        if (s[*k] == 34 && ft_strchr(&s[*k], 34) != NULL)
+        if (s[j] == 34 && ft_strchr(&s[j], 34) != NULL)
         {
-            while (s[++*k] != 34)
-                ret[++i] = s[*k];
-            *k++;
+            while (s[++j] != 34)
+                ret[++i] = s[j];
+            j++;
             continue;
         }
-        if (s[*k] == 39 && ft_strchr(&s[*k], 39) != NULL)
+        if (s[j] == 39 && ft_strchr(&s[j], 39) != NULL)
         {
-            while (s[++*k] != 39)
-                ret[++i] = s[*k];
-            *k++;
+            while (s[++j] != 39)
+                ret[++i] = s[j];
+            j++;
             continue;
         }
-        if (s[*k] != ' ' && s[*k] != '>' && s[*k] != '<')
-            ret[++i] = s[*k++];
+        if (s[j] != ' ' && s[j] != '>' && s[j] != '<')
+        {
+          //  printf("%d %d\n", i, j);
+            ret[++i] = s[j++];
+        }
     }
-    while (s[*k] == ' ')
-        *k++;
+    while (s[j] == ' ')
+        j++;
+    //printf("here j = %d s[j] - %c\n", j, s[j]);
     ret[++i] = 0;
+    *k = j;
+    printf("ret - |%s|\n", ret);
     return (ret);
 }
 
@@ -99,71 +112,72 @@ static int  redirect_create_outputs(char *s, int k)
 {
     int fd;
 
-
-//TODO create all outputs but first command
 //TODO if input file just created handle it like empty
     if (s[k] == '<')
     {
         if (s[k + 1] == '<')
         {
-            if (s[k + 2] == '>')
-                //free all syntax error
-            else if (s[k + 2] == '<')
-                //free all syntax error
-            //get filename
-            fd = open("", O_RDONLY); // some mode
+        if (s[k + 2] == '>')
+            exit (1);//free all syntax error
+        else if (s[k + 2] == '<')
+            exit (1);//free all syntax error
+        fd = open(get_arg(s, &k), O_RDONLY); // some mode
         }
         else if (s[k + 1] == ' ')
         {
             if (s[k + 2] == '<')
-                //free all syntax error
+                exit (1);//free all syntax error
+                
             else if (s[k + 2] == '>')
-                //free all syntax error
+                exit (1); //free all syntax error
         }
         else
-            //get filename
-            fd = open("", O_RDONLY);
-        if (fd < 0)
-            //free all
+            fd = open(get_arg(s, &k), O_RDONLY);
         if (dup2(fd, 0) < 0)
-            // free all 
+            {}// free all without exit
     }
     if (s[k] == '<' && s[k + 1] == '>')
-    {
-        //get filename
-        fd = open("", O_TRUNC | O_CREATE | O_RDWR, 0664);
-    }
+        fd = open(get_arg(s, &k), O_TRUNC | O_CREAT | O_RDWR, 0664);
     if (s[k] == '>')
     {
         if (s[++k] == '<')
         {
             if (s[k + 2] == '>')
-                //free all syntax error
+                exit (1);//free all syntax error
             else if (s[k + 2] == '<')
-                //free all syntax error
+                exit (1);//free all syntax error
             //get filename
             // some mode free all syntax error
         }
+        else if (s[k] == 0)
+            exit (1); //syntax error
         else if (s[k] == '>')
-        {
-            //get filename
-            fd = open("", O_TRUNC | O_CREATE | O_RDWR | O_APPEND 0664);
-        }
+            fd = open(get_arg(s, &k), O_TRUNC | O_CREAT | O_RDWR | O_APPEND, 0664);
         else if (s[k] == ' ')
         {
-            if (s[k + 1] == '<')
-                //free all syntax error
-            else if (s[k + 1] == '>')
-                //free all syntax error
+            while (s[k] == ' ')
+                k++;
+            if (s[k] == '<')
+                exit (1);//free all syntax error
+            else if (s[k] == '>')
+                exit (1);//free all syntax error
+            else
+            {
+                char *cmd = get_arg(s, &k);
+                fd = open(cmd, O_TRUNC | O_CREAT | O_RDWR, 0664);
+            }
         }
         else
-            //get filename
-            fd = open("", O_RDONLY);
-        if (fd < 0)
-            //free all
-        if (dup2(fd, 1) < 0)
-            //free all 
+        {
+            char *cmd = get_arg(s, &k);
+            fd = open(cmd, O_TRUNC | O_CREAT | O_RDWR, 0664);
+        }
+     //   if (dup2(fd, 1) < 0)
+       //     {}//free all 
     }
+    if (fd < 0)
+        exit (1);//free all
+    return (k);
 }
 
 char    **handle_redirect(char *s)
@@ -178,14 +192,22 @@ char    **handle_redirect(char *s)
     ret = malloc(sizeof(char *) * (n + 1));
     if (ret == NULL)
         exit (1);//TODO free all
-    k = -1;
+    //printf("%d %s\n", k, s);
+    k = 0;
     j = -1;
-    while (s[++k])
+    while (s[k])
     {
         if (s[k] == '>' || s[k] == '<')
+        {
+          //  printf("here3 %s  %s\n", s, &s[k]);
             k = redirect_create_outputs(s, k);
+        }
         else
-            ret[++j] = get_arg(s, *k);
+        {
+          //  printf ("here\n");
+            ret[++j] = get_arg(s, &k);
+          //  printf("get arg - |%s|\n", ret[j]);
+        }
     }
     return (ret);
 }
@@ -198,13 +220,13 @@ int main(void)
     cmd = malloc(sizeof(char *) * 24);
     while (n < 24)
         cmd[n++] = malloc(100);
-    cmd[0] = "ls >kfdjjd >dff";
+    cmd[0] = "ls -la";
     cmd[1] = ">sdlkdsk ls >sdkjksd -la";
     cmd[2] = ">    sdsd ls";
     cmd[3] = ">'    sd'sddsdsd ls";
     cmd[4] = ">'   dssds<s' dsdsd ls";
-    cmd[5] = "> >dsds ls";
-    cmd[6] = "><dssdf ls";
+    cmd[5] = "ls"; //"> >dsds ls";
+    cmd[6] = "ls"; //"><dssdf ls";
     cmd[7] = ">< dssd ls";
     cmd[8] = ">>> sdsfdf ls";
     cmd[9] = ">>dffd ls";
@@ -231,9 +253,9 @@ int main(void)
     {
         ret = handle_redirect(cmd[i]);
         j = -1;
-        printf("%s\n GET:\n", cmd[i]);
+        printf("\n%s\n", cmd[i]);
         while (ret[++j])
-            printf("%s\n", ret[j]);
+            printf("get: |%s|\n", ret[j]);
         i++;
     }
     return (0);
