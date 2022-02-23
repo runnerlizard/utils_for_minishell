@@ -104,7 +104,7 @@ static char *get_arg(char *s, int *k)
     //printf("here j = %d s[j] - %c\n", j, s[j]);
     ret[++i] = 0;
     *k = j;
-    printf("ret - |%s|\n", ret);
+    //printf("ret - |%s|\n", ret);
     return (ret);
 }
 
@@ -204,7 +204,7 @@ char    **handle_redirect(char *s)
     j = -1;
     while (s[k])
     {
-        printf("%s\n", &s[k]);
+        //printf("%s\n", &s[k]);
         if (s[k] == '>' || s[k] == '<')
         {
           //  printf("here3 %s  %s\n", s, &s[k]);
@@ -217,9 +217,10 @@ char    **handle_redirect(char *s)
         {
           //  printf ("here\n");
             ret[++j] = get_arg(s, &k);
-          //  printf("get arg - |%s|\n", ret[j]);
+         // printf("get arg - |%s| j - |%d|\n", ret[j], j);
         }
     }
+    ret[++j] = NULL;
     return (ret);
 }
 
